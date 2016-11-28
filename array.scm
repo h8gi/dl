@@ -1,4 +1,4 @@
-(use coops blas coops-primitive-objects)
+(use coops blas)
 ;;; S: single 32
 ;;; D: double 64
 ;;; C: complex (pair of single)
@@ -6,11 +6,16 @@
 
 (define-class <array> ()
   [(dim accessor: dim)
-   (data accessor: data)])
+   (data accessor: data)
+   (safe? accessor: safe?
+          initform: #t)])
 
 (define-method (initialize-instance (a <array>))
   (call-next-method)
   (set! (dim a) (calc-dim (data a))))
+
+(define (array lst)
+  (calc-dim lst))
 
 (define (calc-dim lst)
   (define (inner lst dim-acc)
