@@ -1,0 +1,11 @@
+;;; dl.setup
+
+;;; コンパイル
+(compile -s -O3 -d1 "dl.scm" -j dl)
+(compile -s -O3 -d0 "dl.import.scm")
+
+;;; インストール
+(install-extension
+ 'dl
+ '("dl.so" "dl.import.so")
+ '((version 1.0)))

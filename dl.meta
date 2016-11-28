@@ -1,0 +1,5 @@
+;;; dl.meta
+((author "yagihiroki")
+ (synopsis "dl")
+ (license "MIT license http://opensource.org/licenses/mit-license.php")
+ (files "main.scm" "dl.scm" "dl.setup" "dl.meta"))
