@@ -5,17 +5,11 @@
 ;;; Z: complex (pair of double)
 
 (define-class <array> ()
-  [(dim accessor: dim)
-   (data accessor: data)
-   (safe? accessor: safe?
-          initform: #t)])
-
-(define-method (initialize-instance (a <array>))
-  (call-next-method)
-  (set! (dim a) (calc-dim (data a))))
-
-(define (array lst)
-  (calc-dim lst))
+  ([dim		accessor: dim]
+   [raw-list	accessor: raw-list]
+   [data	accessor: data]
+   [safe?	accessor: safe?
+		initform: #t]))
 
 (define (calc-dim lst)
   (define (inner lst dim-acc)
@@ -33,6 +27,17 @@
          (every dim-same-dim-check lst)]
         [else #f]))
 
-;; (define-method (element-wise-apply (fn #t) (a1 <array>) (a2 <array>))
-;;   )
+(define-method (initialize-instance (a <array>))
+  (call-next-method)
+  (set! (data a) (list->f32vector
+		  (flatten (raw-list a))))
+  (set! (dim  a) (calc-dim (raw-list a))))
+
+;;; initializer
+(define (array lst)
+  (make <array> 'raw-list lst))
+
+
+(define-method (element-wise-apply (fn #t) (a1 <array>) (a2 <array>))
+  )
 
