@@ -4,7 +4,7 @@
 ;;; C: complex (pair of single)
 ;;; Z: complex (pair of double)
 (define-class <array> ()
-  ([dim		accessor: dim
+  ([shape	accessor: shape
 		initform: #f]
    [len         accessor: len]
    [data	accessor: data]      ; f32 vector
@@ -14,59 +14,83 @@
 (define-class <matrix> (<array>))
 (define-class <vector> (<array>))
 
+(define-method (print-object (a <array>) (port #t))
+  (with-output-to-port port
+    (lambda ()
+      (printf "~A ~A:~%"
+              (class-name (class-of a))
+              (shape a))
+      (if (< (len a) 200)
+          (pp (->list a))
+          (display "large...")))))
+
 (define-method (initialize-instance (a <array>))
   (call-next-method)
   (set! (len a) (f32vector-length (data a))))
 
 (define-method (initialize-instance (v <vector>))
   (call-next-method)
-  (set! (dim v) (list (len v))))
+  (set! (shape v) (list (len v))))
 
-(define (calc-dim lst)
-  (define (inner lst dim-acc)
-    (cond [(atom? lst) (reverse! dim-acc)]
+(define (calc-shape lst)
+  (define (inner lst shape-acc)
+    (cond [(atom? lst) (reverse! shape-acc)]
           [else (inner (car lst)
-                       (cons (length lst) dim-acc))]))
+                       (cons (length lst) shape-acc))]))
   (inner lst '()))
-;;; dim check
+;;; shape check
 ;;; maybe slow
-(define (dim-check lst)
+(define (shape-check lst)
   (cond [(atom? lst) #t]
         [(atom? (car lst))
          (every atom? lst)]
         [(and (every list? lst) (apply = (map length lst)))
-         (every dim-same-dim-check lst)]
+         (every shape-same-shape-check lst)]
         [else #f]))
 
-(define (list->array lst)
-  (let ([arr (make <array> 'data (list->f32vector (flatten lst)))])
-    (set! (dim arr)  (calc-dim lst))
-    (set! (len arr)  (f32vector-length (data arr)))
+(define (list->array lst #!optional (class <array>))
+  (let ([arr (make class 'data (list->f32vector (flatten lst)))])
+    (set! (shape arr)  (calc-shape lst))
+    (set! (len arr)    (f32vector-length (data arr)))
     arr))
 
 (define-method (->list (a <array>))
-  (define (inner lst dm)
-    (cond [(null? dm) lst]
-          [else (inner (chop lst (car dm)) (cdr dm))]))
+  (define (inner lst shp)
+    (cond [(null? shp) lst]
+          [else (inner (chop lst (car shp)) (cdr shp))]))
   (let ([lst (f32vector->list (data a))]
-        [dm (reverse (cdr (dim a)))])
-    (inner lst dm)))
+        [shp (reverse (cdr (shape a)))])
+    (inner lst shp)))
 
 (define-method (array-map (fn #t) (a <array>) #!rest rest)
   (make <array> 
     'data (apply f32vector-map fn (data a) (map data rest))
-    'dim  (dim a)))
+    'shape  (shape a)))
+
+;;; deep copy
+(define-method (copy (a <array>))
+  (let ([newvect (make-f32vector (len a))])
+    (f32vector-blit! (data a) 0 (len a) newvect 0)
+    (make (class-of a)
+      'data newvect
+      'shape (list-copy (shape a)))))
+
+(define-method (reshape (a <array>) shp)
+  (assert (= (fold * 1 shp) (len a)) "Data length unmatched" shp (len a))
+  (let ([ca (copy a)])
+    (set! (shape ca) shp)
+    ca))
 
 (define-method (row (m <matrix>))
-  (first  (dim m)))
+  (first  (shape m)))
 (define-method (col (m <matrix>))
-  (second (dim m)))
+  (second (shape m)))
 
 ;;; initializer
 (define (matrix lst nrow ncol)
   (make <matrix>
     'data (list->f32vector lst)
-    'dim  (list nrow ncol)))
+    'shape  (list nrow ncol)))
 
 ;;; transpose
 (define-method (tr (m <matrix>))
@@ -83,7 +107,7 @@
 	  (f32vector-set! mt-v new
 			  (f32vector-ref m-v old)))))
     (make <matrix> 'data mt-v
-	  'dim (list c r))))
+	  'shape (list c r))))
 
 ;;; BLAS level 1
 ;;; norm
@@ -116,7 +140,7 @@
       'data (sgemm RowMajor NoTrans NoTrans
 		   m n k
 		   1 (data a) (data b) 0 (make-f32vector (* m n) 0))
-      'dim (list m n))))
+      'shape (list m n))))
 
 ;;; test data
 (define a
@@ -125,12 +149,10 @@
 		 ((100 200) (200 300) (300 400)))))
 
 (define m
-  (make <matrix>
-    'data (f32vector 1 2 3
-		     4 5 6)
-    'dim '(2 3)))
+  (list->array '((1 2 3)
+                 (4 5 6))
+               <matrix>))
 
 (define v
   (make <vector> 
     'data (f32vector 5 6 7)))
-
